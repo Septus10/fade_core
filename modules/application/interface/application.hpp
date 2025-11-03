@@ -1,9 +1,11 @@
-#ifndef TEST_APPLICATION_CPP
-#define TEST_APPLICATION_CPP
+#ifndef FADE_APPLICATION_HPP_
+#define FADE_APPLICATION_HPP_
 
 #define FADE_PLATFORM_UNIX 1
 
 #include "application.generated.hpp"
+
+#include "application/include/command_line_arguments.hpp"
 
 #include <string>
 #include <vector>
@@ -11,18 +13,13 @@
 
 namespace fade::application {
 
-class FADE_APPLICATION_API application_base
+class FADE_APPLICATION_API ApplicationBase
 {
 public:
-    /** Initializes the application */
-    virtual void initialize(std::vector<std::string> in_args) = 0;
-
-    /** Deinitializes the application */
-    virtual void deinitialize() = 0;
-
-    /** Starts the application */
-    virtual void start() = 0;
+    /** Entrypoint of the application */
+    virtual void Entry(const CommandLineArguments& in_args) = 0;
 };
+
 
 /** 
 * Getter function for the implementation
@@ -30,8 +27,8 @@ public:
 * This could be a singleton, if an application can only have one instance.
 * Or it can behave as a factory, if the application supports it and the user desires it.
 */
-std::unique_ptr<application_base> FADE_APPLICATION_API create();
+std::unique_ptr<ApplicationBase> FADE_APPLICATION_API Create();
 
 }
 
-#endif // TEST_APPLICATION_CPP
+#endif // FADE_APPLICATION_HPP_

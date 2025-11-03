@@ -1,0 +1,5 @@
+{
+  "name": "Linux Platform Main",
+  "description": "The entry point for the linux platform",
+  "platform": "linux"
+}

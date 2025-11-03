@@ -1,0 +1,5 @@
+{
+  "implements_interface": "application", /* If this implementation is not within the same hierarchy as the .fmodule file, the module name must be specified here. */
+  "dependencies": [
+  ]
+}

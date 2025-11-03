@@ -25,8 +25,6 @@
 *.lai
 *.la
 *.a
-[Ee]ngine/[Ss]rc/[Rr]untime/**/*.lib
-[Ee]ngine/[Ss]rc/[Ee]ditor/**/*.lib
 
 # Executables
 *.exe
@@ -49,11 +47,6 @@
 # Build results
 *.exp
 build/
-Engine/[Bb]in/
-Engine/[Bb]in/[Dd]ebug/
-Engine/[Bb]in/[Rr]elease/
-Engine/[Bb]in/x64/
-[Oo]bj/
 
 # NuGet Packages
 *.nupkg
@@ -232,10 +225,12 @@ $RECYCLE.BIN/
 *.vcxproj.filters
 
 # Fade Framework specific ignores
-*/intermediate/*
-*/intermediate/**
-*/bin/*
-*/bin/**
+**/intermediate/*
+**/bin/*
 
 # Visual studio code configuration
 .vscode/**
+*.code-workspace
+
+# Ninja build files
+.ninja_log
