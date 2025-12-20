@@ -1,4 +1,5 @@
-#pragma once
+#ifndef FADE_CORE_SERIALIZATION_INPUT_ARCHIVE_HPP_
+#define FADE_CORE_SERIALIZATION_INPUT_ARCHIVE_HPP_
 
 #include <string>
 #include <type_traits>
@@ -6,150 +7,74 @@
 #include <map>
 #include <cstdint>
 
-namespace fade::serialization {
+#include "core/include/logging.hpp"
 
-// Name-value pair helper used with operator<<
-template<typename T>
-struct Nvp {
-    const char* name;
-    T& value;
+namespace fade::core {
+
+template <typename T>
+using name_value_pair = std::pair<const std::string, T*>;
+
+template <typename T>
+using const_name_value_pair = std::pair<const std::string&, const T*>;
+
+class InputArchive
+{
+public:
+    virtual ~InputArchive() = default;
+
+    template <typename T>
+    bool Load(const std::string& in_name, T& out_variable)
+    {
+        fade::core::Log<fade::core::LogLevel::kWarning>("InputArchive Load not implemented for type.");
+        return false;
+    }
+
+    virtual void PushContext(const std::string& in_name) = 0;
+
+    virtual void PopContext() = 0;
 };
 
-template<typename T>
-inline Nvp<T> nvp(const char* name, T& value) {
-    return Nvp<T>{name, value};
+template <typename T>
+concept IsInputArchiveClass = std::derived_from<T, InputArchive>;
+
+template <typename ArchiveType, class ObjType>
+bool Serialize(ArchiveType& in_output_archive, ObjType& in_obj) requires(IsInputArchiveClass<ArchiveType>);
+
+template <typename ArchiveType, typename T>
+concept SerializableObject = requires(ArchiveType& archive, T& obj)
+{
+    { Serialize(archive, obj) };
+    std::is_class_v<T>;
+};
+
+template <typename ArchiveType, typename T>
+ArchiveType& operator<<(ArchiveType& in_archive, name_value_pair<T> in_obj) 
+    requires(SerializableObject<ArchiveType, T> && IsInputArchiveClass<ArchiveType>)
+{
+    in_archive.PushContext(in_obj.first);
+    Serialize(in_archive, *in_obj.second);
+    in_archive.PopContext();
+    return in_archive;
 }
 
-// Forward declaration for ADL-based custom serializers
-template<typename Archive, typename T>
-void serialize(Archive& ar, T& v);
+template <typename ArchiveType>
+ArchiveType& operator<<(ArchiveType& in_archive, name_value_pair<bool> in_name_bool_pair) 
+    requires(IsInputArchiveClass<ArchiveType>)
+{
+    // Implementation for bool type
+    in_archive.Load(in_name_bool_pair.first, *in_name_bool_pair.second);
+    return in_archive;
+}
 
-// Base class for input archives. It implements the generic logic for
-// reading named fields and delegates format-specific lookup operations
-// to virtual protected methods implemented by concrete archives.
-class input_archive {
-public:
-    input_archive() = default;
-    virtual ~input_archive() = default;
+template <typename ArchiveType>
+ArchiveType& operator<<(ArchiveType& in_archive, name_value_pair<std::string> in_name_string_pair)
+    requires(IsInputArchiveClass<ArchiveType>)
+{
+    // Implementation for string type
+    in_archive.Load(in_name_string_pair.first, *in_name_string_pair.second);
+    return in_archive;
+}
 
-    // Primary interface used by callers: archive << nvp("field", var);
-    template<typename T>
-    input_archive& operator<<(Nvp<T> n) {
-        load(n.name, n.value);
-        return *this;
-    }
+} // namespace fade::core
 
-protected:
-    // format-specific queries implemented by concrete archives
-    // They operate against the current "scope" (object or array element)
-    virtual bool has_member(const std::string& name) const = 0;
-    virtual bool is_null(const std::string& name) const = 0;
-    virtual bool read_bool(const std::string& name, bool& out) const = 0;
-    virtual bool read_number(const std::string& name, double& out) const = 0;
-    virtual bool read_string(const std::string& name, std::string& out) const = 0;
-
-    // Enter/exit nested object/array context. For example when deserializing
-    // a user-defined struct the archive implementation should make calls to
-    // push the object scope so subsequent read_* calls lookup inside it.
-    // The default implementations assume a tree-like navigator provided by
-    // the concrete archive.
-    virtual bool enter_object(const std::string& name) = 0; // returns true on success
-    virtual void exit_object() = 0;
-
-    virtual bool enter_array(const std::string& name, size_t& out_count) = 0;
-    virtual void exit_array() = 0;
-
-private:
-    // Generic loader that dispatches based on T
-    template<typename T>
-    std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T,bool>>
-    load_impl(const std::string& name, T& out) {
-        double tmp;
-        if (read_number(name, tmp)) {
-            out = static_cast<T>(tmp);
-        } else {
-            // attempt to read as string and convert
-            std::string s;
-            if (read_string(name, s)) {
-                out = static_cast<T>(std::stoll(s));
-            } else {
-                // leave out unchanged if not found; implementations may prefer to error
-            }
-        }
-    }
-
-    template<typename T>
-    std::enable_if_t<std::is_floating_point_v<T>>
-    load_impl(const std::string& name, T& out) {
-        double tmp;
-        if (read_number(name, tmp)) {
-            out = static_cast<T>(tmp);
-        } else {
-            std::string s;
-            if (read_string(name, s)) {
-                out = static_cast<T>(std::stod(s));
-            }
-        }
-    }
-
-    void load_impl(const std::string& name, bool& out) {
-        bool b;
-        if (read_bool(name, b)) {
-            out = b;
-        } else {
-            std::string s;
-            if (read_string(name, s)) {
-                out = (s == "true" || s == "1");
-            }
-        }
-    }
-
-    void load_impl(const std::string& name, std::string& out) {
-        read_string(name, out);
-    }
-
-    template<typename Elem>
-    void load_impl(const std::string& name, std::vector<Elem>& out) {
-        size_t n = 0;
-        if (!enter_array(name, n)) return;
-        out.clear(); out.reserve(n);
-        for (size_t i = 0; i < n; ++i) {
-            // enter array element by index - concrete archives should provide
-            // semantics where entering the array will point indexing reads at
-            // the i-th element.
-            // We simulate this by asking the archive to enter an element named
-            // by the numeric index string. Concrete JSON archive below supports this.
-            std::string idx = std::to_string(i);
-            Elem e{};
-            load(idx, e);
-            out.push_back(std::move(e));
-        }
-        exit_array();
-    }
-
-    // Fallback for user-defined types: call ADL serialize(Archive&, T&)
-    template<typename T>
-    std::enable_if_t<!std::is_arithmetic_v<T> && !std::is_same_v<T,std::string> && !std::is_same_v<T,bool> && !std::is_same_v<T,std::vector<typename T::value_type>>, void>
-    load_impl(const std::string& name, T& out) {
-        if (!enter_object(name)) return;
-        // call user-provided serialize overload
-        serialize(*this, out);
-        exit_object();
-    }
-
-    // Top-level loader: locates the child node and forwards to load_impl
-    template<typename T>
-    void load(const std::string& name, T& out) {
-        if (!has_member(name)) {
-            // missing member: keep default or allow implementations to alter behaviour
-            return;
-        }
-        if (is_null(name)) {
-            // leave default value
-            return;
-        }
-        load_impl(name, out);
-    }
-};
-
-} // namespace fade::serialization
+#endif // FADE_CORE_SERIALIZATION_INPUT_ARCHIVE_HPP_

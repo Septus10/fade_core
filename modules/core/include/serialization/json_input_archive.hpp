@@ -1,289 +1,231 @@
-#pragma once
+#ifndef FADE_CORE_SERIALIZATION_JSON_INPUT_ARCHIVE_HPP_
+#define FADE_CORE_SERIALIZATION_JSON_INPUT_ARCHIVE_HPP_
 
-#include "input_archive.hpp"
+#include "core/include/serialization/input_archive.hpp"
+#include "core/include/logging.hpp"
 
 #include <fstream>
 #include <sstream>
 #include <cctype>
 #include <stdexcept>
+#include <filesystem>
+#include <unordered_map>
+#include <stack>
 
-namespace fade::serialization {
+namespace fade::core {
 
-// Very small JSON value representation used by the example json input archive.
-struct JsonValue {
-    enum class Type { Null, Bool, Number, String, Object, Array };
-    Type type = Type::Null;
-    bool b = false;
-    double num = 0.0;
-    std::string str;
-    std::map<std::string, JsonValue> obj;
-    std::vector<JsonValue> arr;
+#undef NULL
+
+enum class JsonValueType : std::uint8_t
+{
+    STRING,
+    NUMBER,
+    OBJECT,
+    ARRAY,
+    TRUE,
+    FALSE,
+    NULL
 };
 
-// Minimal JSON parser. This is intentionally small and not feature-complete.
-// It's good for examples and tests but not for production use. Replace with
-// RapidJSON / nlohmann::json in a real project.
-class JsonParser {
-public:
-    explicit JsonParser(std::string s) : src(std::move(s)), i(0) {}
+struct JsonArray
+{
+    JsonArray() = default;
 
-    JsonValue parse() {
-        skip_ws();
-        JsonValue v = parse_value();
-        skip_ws();
-        return v;
+    JsonArray(const JsonArray& in_other)
+    {
+        elements = in_other.elements;
+    }
+    
+    JsonArray(JsonArray&& in_other) noexcept
+    {
+        elements = std::move(in_other.elements);
+    }
+
+    JsonArray& operator=(const JsonArray& in_other)
+    {
+        if (this != &in_other) {
+            elements = in_other.elements;
+        }
+        return *this;
+    }
+    
+    JsonArray& operator=(JsonArray&& in_other) noexcept
+    {
+        if (this != &in_other) {
+            elements = std::move(in_other.elements);
+        }
+        return *this;
+    }
+
+    std::vector<struct JsonValue> elements;
+};
+
+struct JsonObject
+{
+    JsonObject() = default;
+
+    JsonObject(const JsonObject& in_other)
+    {
+        members = in_other.members;
+    }
+    
+    JsonObject(JsonObject&& in_other) noexcept
+    {
+        members = std::move(in_other.members);
+    }
+
+    JsonObject& operator=(const JsonObject& in_other)
+    {
+        if (this != &in_other) {
+            members = in_other.members;
+        }
+        return *this;
+    }
+    
+    JsonObject& operator=(JsonObject&& in_other) noexcept
+    {
+        if (this != &in_other) {
+            members = std::move(in_other.members);
+        }
+        return *this;
+    }
+
+    bool IsValid() const;
+
+    std::unordered_map<std::string, struct JsonValue> members;
+};
+
+struct JsonValue
+{
+    JsonValue() = default;
+
+    JsonValue(const JsonValue& in_other) = default;
+    JsonValue(JsonValue&& in_other) noexcept = default;
+
+    JsonValue& operator=(const JsonValue& in_other) = default;
+    JsonValue& operator=(JsonValue&& in_other) noexcept = default;
+
+    std::variant<std::string, double, JsonObject, JsonArray, bool, std::nullptr_t> value;
+};
+
+template <typename T>
+concept IsNumberType = std::is_arithmetic_v<T> && !std::is_same_v<T, bool>;
+
+template <typename T>
+concept IsStringType = std::is_same_v<T, std::string>;
+
+template <typename T>
+concept IsObjectType = std::is_class_v<T>;
+
+class JsonInputArchive : public InputArchive 
+{
+public:
+    JsonInputArchive()
+    {
+    }
+
+    [[nodiscard]] 
+    bool Parse(const std::string& in_json_string);
+
+    [[nodiscard]] 
+    bool Parse(std::ifstream& in_json_file_stream);
+
+    [[nodiscard]] 
+    bool Parse(const std::filesystem::path& in_json_file_path);
+
+    // std::variant<std::string, double, JsonObject, JsonArray, bool, std::nullptr_t> value;
+
+    template <typename T>
+    bool Load(const std::string& in_name, T& out_variable)
+        requires(IsNumberType<T>)
+    {
+        return LoadInternal<double, T>(in_name, out_variable);
+    }
+
+    template <typename T>
+    bool Load(const std::string& in_name, T& out_variable)
+        requires(IsStringType<T>)
+    {
+        return LoadInternal<std::string, T>(in_name, out_variable);
+    }
+
+    template <typename T>
+    bool Load(const std::string& in_name, T& out_variable)
+        requires(std::is_same_v<T, bool>)
+    {
+        return LoadInternal<bool, T>(in_name, out_variable);
+    }
+
+    virtual void PushContext(const std::string& in_name) override
+    {
+        if (JsonObject* current_context = context_stack_.top(); current_context != nullptr)
+        {
+            if (auto it = current_context->members.find(in_name); it != current_context->members.end())
+            {
+                if (JsonObject* child_object = std::get_if<JsonObject>(&it->second.value); child_object != nullptr)
+                {
+                    context_stack_.push(child_object);
+                }
+                else
+                {
+                    fade::core::Log<fade::core::LogLevel::kWarning>("Context '{}' is not a JSON object.", in_name);
+                }
+            }
+            else
+            {
+                fade::core::Log<fade::core::LogLevel::kWarning>("Context '{}' not found.", in_name);
+            }
+        }        
+    }
+
+    virtual void PopContext() override
+    {
+        if (context_stack_.size() > 1)
+        {
+            context_stack_.pop();
+        }
+        else
+        {
+            fade::core::Log<fade::core::LogLevel::kWarning>("Trying to pop root context.");
+        }
     }
 
 private:
-    const std::string src;
-    size_t i;
-
-    void skip_ws() {
-        while (i < src.size() && std::isspace((unsigned char)src[i])) ++i;
-    }
-
-    bool match(const char c) {
-        skip_ws();
-        if (i < src.size() && src[i] == c) { ++i; return true; }
-        return false;
-    }
-
-    JsonValue parse_value() {
-        skip_ws();
-        if (i >= src.size()) throw std::runtime_error("unexpected end of input");
-        char c = src[i];
-        if (c == 'n') return parse_null();
-        if (c == 't' || c == 'f') return parse_bool();
-        if (c == '"') return parse_string();
-        if (c == '{') return parse_object();
-        if (c == '[') return parse_array();
-        if (c == '-' || (c >= '0' && c <= '9')) return parse_number();
-        throw std::runtime_error(std::string("unexpected char: ") + c);
-    }
-
-    JsonValue parse_null() {
-        expect("null");
-        JsonValue v; v.type = JsonValue::Type::Null; return v;
-    }
-
-    JsonValue parse_bool() {
-        if (peek_str("true")) { expect("true"); JsonValue v; v.type = JsonValue::Type::Bool; v.b = true; return v; }
-        expect("false"); JsonValue v; v.type = JsonValue::Type::Bool; v.b = false; return v;
-    }
-
-    JsonValue parse_number() {
-        size_t start = i;
-        if (src[i] == '-') ++i;
-        while (i < src.size() && std::isdigit((unsigned char)src[i])) ++i;
-        if (i < src.size() && src[i] == '.') {
-            ++i;
-            while (i < src.size() && std::isdigit((unsigned char)src[i])) ++i;
-        }
-        // exponent not supported in this tiny parser
-        double val = std::stod(src.substr(start, i - start));
-        JsonValue v; v.type = JsonValue::Type::Number; v.num = val; return v;
-    }
-
-    JsonValue parse_string() {
-        if (!match('"')) throw std::runtime_error("expected '" " to start string");
-        std::string out;
-        while (i < src.size()) {
-            char c = src[i++];
-            if (c == '\\') {
-                if (i >= src.size()) break;
-                char e = src[i++];
-                if (e == '"') out.push_back('"');
-                else if (e == '\\') out.push_back('\\');
-                else if (e == '/') out.push_back('/');
-                else if (e == 'b') out.push_back('\b');
-                else if (e == 'f') out.push_back('\f');
-                else if (e == 'n') out.push_back('\n');
-                else if (e == 'r') out.push_back('\r');
-                else if (e == 't') out.push_back('\t');
-                else out.push_back(e);
-            } else if (c == '"') {
-                JsonValue v; v.type = JsonValue::Type::String; v.str = std::move(out); return v;
-            } else {
-                out.push_back(c);
+    template <typename VariantType, typename VariableType>
+    bool LoadInternal(const std::string& in_name, VariableType& out_variable)
+    {
+        if (JsonObject* current_context_ = context_stack_.top(); current_context_ != nullptr)
+        {
+            if (auto it = current_context_->members.find(in_name); it != current_context_->members.end())
+            {
+                if (VariantType* value_ptr = std::get_if<VariantType>(&it->second.value); value_ptr != nullptr)
+                {
+                    out_variable = static_cast<VariableType>(*value_ptr);
+                    return true;
+                }
+                else if (std::holds_alternative<std::nullptr_t>(it->second.value))
+                {
+                    return true;
+                }
+                else
+                {
+                    fade::core::Log<fade::core::LogLevel::kWarning>("Failed to load value for key '{}'", in_name);
+                }
             }
         }
-        throw std::runtime_error("unterminated string");
-    }
 
-    JsonValue parse_object() {
-        if (!match('{')) throw std::runtime_error("expected '{'");
-        JsonValue v; v.type = JsonValue::Type::Object;
-        skip_ws();
-        if (match('}')) return v; // empty object
-        while (true) {
-            skip_ws();
-            JsonValue key = parse_string();
-            skip_ws();
-            if (!match(':')) throw std::runtime_error("expected ':' in object");
-            JsonValue val = parse_value();
-            v.obj.emplace(std::move(key.str), std::move(val));
-            skip_ws();
-            if (match('}')) break;
-            if (!match(',')) throw std::runtime_error("expected ',' in object");
-        }
-        return v;
-    }
-
-    JsonValue parse_array() {
-        if (!match('[')) throw std::runtime_error("expected '['");
-        JsonValue v; v.type = JsonValue::Type::Array;
-        skip_ws();
-        if (match(']')) return v; // empty
-        while (true) {
-            JsonValue el = parse_value();
-            v.arr.push_back(std::move(el));
-            skip_ws();
-            if (match(']')) break;
-            if (!match(',')) throw std::runtime_error("expected ',' in array");
-        }
-        return v;
-    }
-
-    bool peek_str(const char* s) {
-        size_t len = std::strlen(s);
-        return src.size() >= i + len && src.substr(i, len) == s;
-    }
-
-    void expect(const char* s) {
-        size_t len = std::strlen(s);
-        if (!peek_str(s)) throw std::runtime_error(std::string("expected: ") + s);
-        i += len;
-    }
-};
-
-// json_input_archive: concrete input archive that parses the whole JSON file
-// into a JsonValue tree and provides lookup operations used by input_archive.
-class json_input_archive : public input_archive {
-public:
-    // NOTE: assumption: user meant "open the file to read from" for an input
-    // archive constructor. If you truly want to open for writing, let me know.
-    explicit json_input_archive(const std::string& path) {
-        std::ifstream ifs(path, std::ios::binary);
-        if (!ifs) throw std::runtime_error("failed to open file: " + path);
-        std::ostringstream ss;
-        ss << ifs.rdbuf();
-        std::string content = ss.str();
-        JsonParser p(std::move(content));
-        root = p.parse();
-        // stack initially points to the root (unnamed scope)
-        scope_stack.clear();
-        scope_stack.push_back(&root);
-    }
-
-    ~json_input_archive() override = default;
-
-protected:
-    bool has_member(const std::string& name) const override {
-        const JsonValue* cur = current();
-        if (!cur) return false;
-        if (cur->type == JsonValue::Type::Object) {
-            return cur->obj.find(name) != cur->obj.end();
-        }
-        if (cur->type == JsonValue::Type::Array) {
-            // name may be an index
-            size_t idx = parse_index(name);
-            return idx < cur->arr.size();
-        }
-        // scalar: only empty name is valid
-        return name.empty();
-    }
-
-    bool is_null(const std::string& name) const override {
-        const JsonValue* node = lookup(name);
-        return node && node->type == JsonValue::Type::Null;
-    }
-
-    bool read_bool(const std::string& name, bool& out) const override {
-        const JsonValue* node = lookup(name);
-        if (!node) return false;
-        if (node->type == JsonValue::Type::Bool) { out = node->b; return true; }
         return false;
     }
 
-    bool read_number(const std::string& name, double& out) const override {
-        const JsonValue* node = lookup(name);
-        if (!node) return false;
-        if (node->type == JsonValue::Type::Number) { out = node->num; return true; }
-        return false;
-    }
-
-    bool read_string(const std::string& name, std::string& out) const override {
-        const JsonValue* node = lookup(name);
-        if (!node) return false;
-        if (node->type == JsonValue::Type::String) { out = node->str; return true; }
-        return false;
-    }
-
-    bool enter_object(const std::string& name) override {
-        const JsonValue* node = lookup(name);
-        if (!node) return false;
-        if (node->type != JsonValue::Type::Object) return false;
-        scope_stack.push_back(node);
-        return true;
-    }
-
-    void exit_object() override {
-        if (!scope_stack.empty()) scope_stack.pop_back();
-        if (scope_stack.empty()) scope_stack.push_back(&root);
-    }
-
-    bool enter_array(const std::string& name, size_t& out_count) override {
-        const JsonValue* node = lookup(name);
-        if (!node) return false;
-        if (node->type != JsonValue::Type::Array) return false;
-        out_count = node->arr.size();
-        // push array node as scope so that subsequent numeric-index lookups work
-        scope_stack.push_back(node);
-        return true;
-    }
-
-    void exit_array() override {
-        if (!scope_stack.empty()) scope_stack.pop_back();
-        if (scope_stack.empty()) scope_stack.push_back(&root);
-    }
+    [[nodiscard]] 
+    bool ParseJsonFromStream(std::istream& in_stream);
 
 private:
-    JsonValue root;
-    std::vector<const JsonValue*> scope_stack;
+    JsonObject root_object_;
 
-    const JsonValue* current() const {
-        if (scope_stack.empty()) return &root;
-        return scope_stack.back();
-    }
-
-    // lookup child by name inside the current scope. If name is empty, return current.
-    const JsonValue* lookup(const std::string& name) const {
-        const JsonValue* cur = current();
-        if (!cur) return nullptr;
-        if (name.empty()) return cur;
-        if (cur->type == JsonValue::Type::Object) {
-            auto it = cur->obj.find(name);
-            if (it == cur->obj.end()) return nullptr;
-            return &it->second;
-        }
-        if (cur->type == JsonValue::Type::Array) {
-            size_t idx = parse_index(name);
-            if (idx >= cur->arr.size()) return nullptr;
-            return &cur->arr[idx];
-        }
-        // scalar can't have children
-        return nullptr;
-    }
-
-    static size_t parse_index(const std::string& s) {
-        if (s.empty()) return SIZE_MAX;
-        size_t idx = 0;
-        for (char c : s) {
-            if (!std::isdigit((unsigned char)c)) return SIZE_MAX;
-            idx = idx * 10 + (c - '0');
-        }
-        return idx;
-    }
+    std::stack<JsonObject*> context_stack_;
 };
 
-} // namespace fade::serialization
+} // namespace fade::core
+
+#endif // FADE_CORE_SERIALIZATION_JSON_INPUT_ARCHIVE_HPP_
