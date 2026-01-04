@@ -14,7 +14,8 @@ enum class LogLevel : fade::uint8
     kInfo,
     kWarning,
     kError,
-    kCritical
+    kCritical,
+    kVerbose
 };
 
 template <LogLevel log_level, typename... Args>
@@ -27,6 +28,7 @@ void Log(std::string in_format_str, Args&&... in_args)
         else if constexpr (log_level == LogLevel::kWarning) return "[\033[33mInfo\033[0m]: ";
         else if constexpr (log_level == LogLevel::kError) return "[\033[41mError\033[0m]: ";
         else if constexpr (log_level == LogLevel::kCritical) return "[\033[41mCritical\033[0m]: ";
+        else if constexpr (log_level == LogLevel::kVerbose) return "[\033[34mVerbose\033[0m]: ";
         else return "Unknown";
     };
     std::string combined_format_str = get_log_level_str(log_level) + in_format_str + "\n";

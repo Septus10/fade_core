@@ -1,4 +1,9 @@
 {
   "name": "Platform Entry",
-  "description": "The entry point for all platforms."
+  "description": "The platform specific entry point for Fade applications.",
+  "version": {
+    "major": 0,
+    "minor": 0,
+    "revision": 1
+  }
 }

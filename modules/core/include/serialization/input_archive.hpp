@@ -28,50 +28,52 @@ public:
         fade::core::Log<fade::core::LogLevel::kWarning>("InputArchive Load not implemented for type.");
         return false;
     }
-
-    virtual void PushContext(const std::string& in_name) = 0;
-
-    virtual void PopContext() = 0;
 };
 
 template <typename T>
 concept IsInputArchiveClass = std::derived_from<T, InputArchive>;
 
-template <typename ArchiveType, class ObjType>
-bool Serialize(ArchiveType& in_output_archive, ObjType& in_obj) requires(IsInputArchiveClass<ArchiveType>);
-
 template <typename ArchiveType, typename T>
-concept SerializableObject = requires(ArchiveType& archive, T& obj)
+concept SerializableObject = std::is_class_v<T> && requires(ArchiveType& archive, T& obj)
 {
+    // The Serialize function must be defined for the type T
     { Serialize(archive, obj) };
-    std::is_class_v<T>;
 };
 
+// Specialization for pointers, which we don't support
 template <typename ArchiveType, typename T>
-ArchiveType& operator<<(ArchiveType& in_archive, name_value_pair<T> in_obj) 
-    requires(SerializableObject<ArchiveType, T> && IsInputArchiveClass<ArchiveType>)
+ArchiveType& operator<<(ArchiveType& in_archive, name_value_pair<T*> in_name_objptr_pair)
+    requires (IsInputArchiveClass<ArchiveType>)
 {
-    in_archive.PushContext(in_obj.first);
-    Serialize(in_archive, *in_obj.second);
-    in_archive.PopContext();
+    static_assert(false, "InputArchive does not support raw pointer serialization. Please use smart pointers");
     return in_archive;
 }
 
-template <typename ArchiveType>
-ArchiveType& operator<<(ArchiveType& in_archive, name_value_pair<bool> in_name_bool_pair) 
-    requires(IsInputArchiveClass<ArchiveType>)
+// Specialization for smart pointers, we do support. 
+// Though this support should probably somehow be implemented as an additional concept/requirement for the other function that calls LoadObject.
+template <typename ArchiveType, typename T>
+ArchiveType& operator<<(ArchiveType& in_archive, name_value_pair<std::shared_ptr<T>> in_name_objectptr_pair)
+    requires (SerializableObject<ArchiveType, T> && IsInputArchiveClass<ArchiveType>)
 {
-    // Implementation for bool type
-    in_archive.Load(in_name_bool_pair.first, *in_name_bool_pair.second);
+    in_archive.LoadObject(in_name_objectptr_pair.first, *in_name_objectptr_pair.second);
     return in_archive;
 }
 
-template <typename ArchiveType>
-ArchiveType& operator<<(ArchiveType& in_archive, name_value_pair<std::string> in_name_string_pair)
-    requires(IsInputArchiveClass<ArchiveType>)
+// Specialization for most types
+template <typename ArchiveType, typename T>
+ArchiveType& operator<<(ArchiveType& in_archive, name_value_pair<T> in_name_value_pair) 
+    requires (IsInputArchiveClass<ArchiveType> && !SerializableObject<ArchiveType, T>)
 {
-    // Implementation for string type
-    in_archive.Load(in_name_string_pair.first, *in_name_string_pair.second);
+    in_archive.Load(in_name_value_pair.first, *in_name_value_pair.second);
+    return in_archive;
+}
+
+// Specialization for serializable objects
+template <typename ArchiveType, typename T>
+ArchiveType& operator<<(ArchiveType& in_archive, name_value_pair<T> in_name_obj_pair) 
+    requires (SerializableObject<ArchiveType, T> && IsInputArchiveClass<ArchiveType>)
+{
+    in_archive.LoadObject(in_name_obj_pair.first, *in_name_obj_pair.second);
     return in_archive;
 }
 

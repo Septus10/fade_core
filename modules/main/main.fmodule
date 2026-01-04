@@ -1,0 +1,6 @@
+{
+  "name": "Fade Main",
+  "description": "The platform independent entry point for Fade applications.",
+  "interface_config": null,
+  "include_config": null
+}

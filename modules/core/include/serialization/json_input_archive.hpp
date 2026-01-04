@@ -11,6 +11,8 @@
 #include <filesystem>
 #include <unordered_map>
 #include <stack>
+#include <cassert>
+#include <memory>
 
 namespace fade::core {
 
@@ -156,39 +158,79 @@ public:
         return LoadInternal<bool, T>(in_name, out_variable);
     }
 
-    virtual void PushContext(const std::string& in_name) override
+    template <typename T>
+    bool LoadObject(const std::string& in_name, std::shared_ptr<T>& out_object_ptr)
     {
-        if (JsonObject* current_context = context_stack_.top(); current_context != nullptr)
+        // The shared pointer must be null/empty when loading
+        assert(out_object_ptr == nullptr);
+        bool success = false;
+
+        if (JsonObject* current_context_ = context_stack_.top(); current_context_ != nullptr)
         {
-            if (auto it = current_context->members.find(in_name); it != current_context->members.end())
+            if (auto it = current_context_->members.find(in_name); it != current_context_->members.end())
             {
-                if (JsonObject* child_object = std::get_if<JsonObject>(&it->second.value); child_object != nullptr)
+                if (std::holds_alternative<std::nullptr_t>(it->second.value))
                 {
-                    context_stack_.push(child_object);
+                    success = true;
                 }
                 else
                 {
-                    fade::core::Log<fade::core::LogLevel::kWarning>("Context '{}' is not a JSON object.", in_name);
-                }
+                    out_object_ptr = std::make_shared<T>();
+                    // Only if the value is actually a json object should we push and pop context.
+                    if (JsonObject* object_ptr = std::get_if<JsonObject>(&it->second.value); object_ptr != nullptr)
+                    {
+                        PushContext(object_ptr);
+                        success |= Serialize(*this, *out_object_ptr);
+                        PopContext();
+                    }
+                    else
+                    {
+                        success |= Serialize(*this, *out_object_ptr);
+                    }
+                }                
             }
-            else
-            {
-                fade::core::Log<fade::core::LogLevel::kWarning>("Context '{}' not found.", in_name);
-            }
-        }        
+        }
+        return success;
     }
 
-    virtual void PopContext() override
+    template <typename T>
+    bool LoadObject(const std::string& in_name, T& out_object)
     {
-        if (context_stack_.size() > 1)
+        bool success = false;
+
+        if (JsonObject* current_context_ = context_stack_.top(); current_context_ != nullptr)
         {
-            context_stack_.pop();
+            if (auto it = current_context_->members.find(in_name); it != current_context_->members.end())
+            {
+                // Only if the value is actually a json object should we push and pop context.
+                if (JsonObject* object_ptr = std::get_if<JsonObject>(&it->second.value); object_ptr != nullptr)
+                {
+                    PushContext(object_ptr);
+                    success |= Serialize(*this, out_object);
+                    PopContext();
+                }
+                // Otherwise, the serialize function has its own way to serialize the value
+                else if (!std::holds_alternative<std::nullptr_t>(it->second.value))
+                {
+                    success |= Serialize(*this, out_object);
+                }
+            }
         }
-        else
-        {
-            fade::core::Log<fade::core::LogLevel::kWarning>("Trying to pop root context.");
-        }
+
+        return success;
     }
+
+    /**
+     * Push a new JSON object to the context stack.
+     * 
+     * This is used when entering a new object scope during deserialization.
+     */
+    void PushContext(JsonObject* in_json_object_ptr);
+
+    /**
+     * Pop the current JSON object from the context stack when finished deserializing it.
+     */
+    void PopContext();
 
 private:
     template <typename VariantType, typename VariableType>

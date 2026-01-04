@@ -343,6 +343,23 @@ bool JsonInputArchive::Parse(const std::filesystem::path& in_json_file_path)
     return ParseJsonFromStream(file_stream);
 }
 
+void JsonInputArchive::PushContext(JsonObject* in_json_object_ptr)
+{
+    context_stack_.push(in_json_object_ptr);
+}
+
+void JsonInputArchive::PopContext() 
+{
+    if (context_stack_.size() > 1)
+    {
+        context_stack_.pop();
+    }
+    else
+    {
+        fade::core::Log<fade::core::LogLevel::kWarning>("Trying to pop root context.");
+    }
+}
+
 bool JsonInputArchive::ParseJsonFromStream(std::istream& in_stream)
 {
     // 
