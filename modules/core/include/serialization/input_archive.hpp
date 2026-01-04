@@ -52,10 +52,10 @@ ArchiveType& operator<<(ArchiveType& in_archive, name_value_pair<T*> in_name_obj
 // Specialization for smart pointers, we do support. 
 // Though this support should probably somehow be implemented as an additional concept/requirement for the other function that calls LoadObject.
 template <typename ArchiveType, typename T>
-ArchiveType& operator<<(ArchiveType& in_archive, name_value_pair<std::shared_ptr<T>> in_name_objectptr_pair)
+ArchiveType& operator<<(ArchiveType& in_archive, name_value_pair<std::unique_ptr<T>> in_name_objectptr_pair)
     requires (SerializableObject<ArchiveType, T> && IsInputArchiveClass<ArchiveType>)
 {
-    in_archive.LoadObject(in_name_objectptr_pair.first, *in_name_objectptr_pair.second);
+    *in_name_objectptr_pair.second = std::move(in_archive.template LoadUniquePtrObject<T>(in_name_objectptr_pair.first));
     return in_archive;
 }
 

@@ -159,38 +159,33 @@ public:
     }
 
     template <typename T>
-    bool LoadObject(const std::string& in_name, std::shared_ptr<T>& out_object_ptr)
+    std::unique_ptr<T> LoadUniquePtrObject(const std::string& in_name)
     {
-        // The shared pointer must be null/empty when loading
-        assert(out_object_ptr == nullptr);
-        bool success = false;
-
         if (JsonObject* current_context_ = context_stack_.top(); current_context_ != nullptr)
         {
             if (auto it = current_context_->members.find(in_name); it != current_context_->members.end())
             {
-                if (std::holds_alternative<std::nullptr_t>(it->second.value))
+                if (!std::holds_alternative<std::nullptr_t>(it->second.value))
                 {
-                    success = true;
-                }
-                else
-                {
-                    out_object_ptr = std::make_shared<T>();
+                    std::unique_ptr<T> return_ptr = std::make_unique<T>();
                     // Only if the value is actually a json object should we push and pop context.
                     if (JsonObject* object_ptr = std::get_if<JsonObject>(&it->second.value); object_ptr != nullptr)
                     {
                         PushContext(object_ptr);
-                        success |= Serialize(*this, *out_object_ptr);
+                        Serialize(*this, *return_ptr.get());
                         PopContext();
                     }
                     else
                     {
-                        success |= Serialize(*this, *out_object_ptr);
+                        Serialize(*this, *return_ptr.get());
                     }
-                }                
+
+                    return std::move(return_ptr);
+                }
             }
         }
-        return success;
+
+        return nullptr;
     }
 
     template <typename T>
