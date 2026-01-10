@@ -1,5 +1,15 @@
 {
   "name": "Linux Platform Main",
   "description": "The entry point for the linux platform",
-  "platform": "linux"
+  "platform": "linux",
+  "dependencies": [
+    {
+      "name": "fade_entry",
+      "interface_version": {
+        "major": 0,
+        "minor": 0,
+        "revision": 1
+      }
+    }
+  ]
 }

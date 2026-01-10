@@ -1,12 +1,12 @@
 {
   "name": "Fade Application",
   "description": "The module interface that projects/applications must implement.",
-  "interface_config": {
+  "interface_config": null,
+  "include_config": {
     "version": {
       "major": 0,
       "minor": 0,
       "revision": 1
     }
-  },
-  "include_config": null
+  }
 }

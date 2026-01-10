@@ -4,7 +4,7 @@
 #include "core/include/serialization/input_archive.hpp"
 #include "core/include/serialization/output_archive.hpp"
 
-namespace fade::core {
+namespace fade {
 
 }
 

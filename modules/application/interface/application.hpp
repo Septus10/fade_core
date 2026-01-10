@@ -18,6 +18,8 @@ class FADE_APPLICATION_API ApplicationBase
 public:
     /** Entrypoint of the application */
     virtual void Entry(const CommandLineArguments& in_args) = 0;
+
+    virtual const std::string& GetApplicationName() const = 0;
 };
 
 

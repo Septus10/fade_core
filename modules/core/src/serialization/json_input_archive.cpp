@@ -7,7 +7,7 @@
 #include <cassert>
 #include <cstring>
 
-namespace fade::core {
+namespace fade {
 
 // json parser state machine
 // state machine tracks state changes, and json parser state machine uses those state changes
@@ -119,12 +119,12 @@ public:
         JsonObject return_object;
         if (!ParseJsonObject(return_object))
         {
-            fade::core::Log<fade::core::LogLevel::kError>("Error whilst parsing json object: {}", error_message_);
+            fade::Log<fade::LogLevel::kError>("Error whilst parsing json object: {}", error_message_);
         }
 
         if (!return_object.IsValid())
         {
-            fade::core::Log<fade::core::LogLevel::kError>("Parsed JSON object is not valid.");
+            fade::Log<fade::LogLevel::kError>("Parsed JSON object is not valid.");
         }
         
         return return_object;
@@ -336,7 +336,7 @@ bool JsonInputArchive::Parse(const std::filesystem::path& in_json_file_path)
     std::ifstream file_stream(in_json_file_path);
     if (!file_stream.is_open())
     {
-        fade::core::Log<fade::core::LogLevel::kError>("Failed to open JSON file at path '{}'.", in_json_file_path.string());
+        fade::Log<fade::LogLevel::kError>("Failed to open JSON file at path '{}'.", in_json_file_path.string());
         return false;
     }
 
@@ -356,7 +356,7 @@ void JsonInputArchive::PopContext()
     }
     else
     {
-        fade::core::Log<fade::core::LogLevel::kWarning>("Trying to pop root context.");
+        fade::Log<fade::LogLevel::kWarning>("Trying to pop root context.");
     }
 }
 
@@ -365,7 +365,7 @@ bool JsonInputArchive::ParseJsonFromStream(std::istream& in_stream)
     // 
     if (!in_stream.good())
     {
-        fade::core::Log<fade::core::LogLevel::kError>("Input stream is not in a good state for reading.");
+        fade::Log<fade::LogLevel::kError>("Input stream is not in a good state for reading.");
         return false;
     }
 

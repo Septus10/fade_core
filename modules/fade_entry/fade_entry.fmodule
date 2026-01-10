@@ -1,0 +1,12 @@
+{
+  "name": "Fade Entry",
+  "description": "The platform independent entry point of the fade framework.",
+  "interface_config": {
+    "version": {
+      "major": 0,
+      "minor": 0,
+      "revision": 1
+    }
+  },
+  "include_config": null
+}

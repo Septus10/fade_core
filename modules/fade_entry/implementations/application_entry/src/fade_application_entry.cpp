@@ -1,4 +1,4 @@
-#include "main/interface/fade_main.hpp"
+#include "fade_entry/interface/fade_entry.hpp"
 
 #include "application/interface/application.hpp"
 
@@ -10,6 +10,8 @@
 
 namespace fade::main {
 
+static fade::application::CommandLineArgumentDescription HelpDescription = fade::application::CommandLineArgumentDescription("h", "help", "Prints the list of command line arguments supported by this application.");
+
 int FadeMain(int in_argc, char** in_args)
 {
     std::unique_ptr<fade::application::ApplicationBase> app = fade::application::Create();
@@ -17,6 +19,12 @@ int FadeMain(int in_argc, char** in_args)
     {
         fade::application::CommandLineArguments cmd_args;
         cmd_args.Parse(in_argc, in_args);
+        if (cmd_args.Get(HelpDescription) != nullptr)
+        {
+            cmd_args.PrintHelpString(app->GetApplicationName());
+            return EXIT_SUCCESS;
+        }
+
         try
         {
             app->Entry(cmd_args);
@@ -29,7 +37,7 @@ int FadeMain(int in_argc, char** in_args)
         }
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 }

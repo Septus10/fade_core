@@ -10,7 +10,7 @@ void test_namespace::test_##test_suite##_##test_name::run_test()
 
 #define ASSERT_EQ(x) if (!x) { std::cout << "failed." << std::endl; return; }
 
-TEST(fade::core, type_definitions, type_sizes) 
+TEST(fade, type_definitions, type_sizes) 
 {
     ASSERT_EQ(sizeof(fade::uint8) == 1)
     ASSERT_EQ(sizeof(fade::uint16) == 2)

@@ -6,7 +6,7 @@
 #include <iostream>
 #include <string>
 
-namespace fade::core {
+namespace fade {
 
 enum class LogLevel : fade::uint8
 {
