@@ -192,7 +192,7 @@ public:
             return false;
         }
 
-        out_json_array.elements = std::vector<JsonValue>();
+        out_json_array.elements = fade::DynamicArray<JsonValue>();
         if (!Consume('['))
         {
             SetErrorMessage("Expected '[' but found {}", CurrentToken());

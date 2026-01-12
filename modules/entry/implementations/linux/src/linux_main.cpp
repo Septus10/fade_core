@@ -5,7 +5,7 @@
 
 #include "application/interface/application.hpp"
 #include "core/include/type_definitions.hpp"
-#include "main/interface/fade_main.hpp"
+#include "fade_entry/interface/fade_entry.hpp"
 
 int main(int in_argc, char** in_args)
 {

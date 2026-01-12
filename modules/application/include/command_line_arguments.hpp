@@ -1,8 +1,11 @@
 #ifndef FADE_APPLICATION_COMMAND_LINE_ARGUMENTS_HPP_
 #define FADE_APPLICATION_COMMAND_LINE_ARGUMENTS_HPP_
 
+// Fade includes
+#include "core/include/containers/dynamic_array.hpp"
+
+// STL includes
 #include <string>
-#include <vector>
 
 namespace fade::application {
 
@@ -25,7 +28,7 @@ bool operator==(const CommandLineArgumentDescription& in_lhs, const std::string&
 struct CommandLineArgument
 {
     const CommandLineArgumentDescription* description = nullptr;
-    std::vector<std::string> values;
+    fade::DynamicArray<std::string> values;
 };
 
 class CommandLineArguments
@@ -43,10 +46,10 @@ public:
     static void RegisterCommandLineArgument(const CommandLineArgumentDescription& in_command_line_argument_description);
 
 private:
-    static std::vector<CommandLineArgumentDescription>& GetRegisteredDescriptions();
+    static fade::DynamicArray<CommandLineArgumentDescription>& GetRegisteredDescriptions();
 
 private:
-    std::vector<CommandLineArgument> arguments_;
+    fade::DynamicArray<CommandLineArgument> arguments_;
 
     
 };

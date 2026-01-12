@@ -76,7 +76,7 @@ void CommandLineArguments::Parse(int in_argc, char** in_argv)
         }
 
         // Try and find the corresponding description
-        for (const std::vector<CommandLineArgumentDescription>& registered_argument_descriptions = GetRegisteredDescriptions(); const CommandLineArgumentDescription& description : registered_argument_descriptions)
+        for (const fade::DynamicArray<CommandLineArgumentDescription>& registered_argument_descriptions = GetRegisteredDescriptions(); const CommandLineArgumentDescription& description : registered_argument_descriptions)
         {
             if (description == found_name)
             {
@@ -114,7 +114,7 @@ void CommandLineArguments::PrintHelpString(const std::string_view in_application
     std::print("Listing command line arguments for {}\n", in_application_name);
     std::stringstream help_string_stream;
 
-    for (const std::vector<CommandLineArgumentDescription>& registered_argument_descriptions = GetRegisteredDescriptions(); const CommandLineArgumentDescription& description : registered_argument_descriptions)
+    for (const fade::DynamicArray<CommandLineArgumentDescription>& registered_argument_descriptions = GetRegisteredDescriptions(); const CommandLineArgumentDescription& description : registered_argument_descriptions)
     {
         help_string_stream << std::format("{:<20}{:<40}{:<40}\n", "-" + description.short_name, "--" + description.long_name, description.description);
     }
@@ -125,7 +125,7 @@ void CommandLineArguments::PrintHelpString(const std::string_view in_application
 void CommandLineArguments::RegisterCommandLineArgument(const CommandLineArgumentDescription& in_command_line_argument_description)
 {
     // Check if we already have overlap in either the short or long name
-    std::vector<CommandLineArgumentDescription>& registered_argument_descriptions = GetRegisteredDescriptions();
+    fade::DynamicArray<CommandLineArgumentDescription>& registered_argument_descriptions = GetRegisteredDescriptions();
     for (const CommandLineArgumentDescription& description : registered_argument_descriptions)
     {
         if (description == in_command_line_argument_description)
@@ -141,9 +141,9 @@ void CommandLineArguments::RegisterCommandLineArgument(const CommandLineArgument
     registered_argument_descriptions.push_back(in_command_line_argument_description);
 }
 
-std::vector<CommandLineArgumentDescription>& CommandLineArguments::GetRegisteredDescriptions()
+fade::DynamicArray<CommandLineArgumentDescription>& CommandLineArguments::GetRegisteredDescriptions()
 {
-    static std::vector<CommandLineArgumentDescription> registered_descriptions;
+    static fade::DynamicArray<CommandLineArgumentDescription> registered_descriptions;
     return registered_descriptions;
 }
 

@@ -1,10 +1,12 @@
 #ifndef FADE_CORE_TYPE_TRAITS_HPP_
 #define FADE_CORE_TYPE_TRAITS_HPP_
 
-#include <type_traits>
+// Fade includes
+#include "core/include/containers/dynamic_array.hpp"
 
+// STL includes
+#include <type_traits>
 #include <memory>
-#include <vector>
 
 namespace fade {
 
@@ -22,7 +24,7 @@ concept SharedPtrType = std::is_same_v<T, std::shared_ptr<typename T::element_ty
     };
 
 template <typename T>
-concept VectorType = std::is_same_v<T, std::vector<typename T::value_type, typename T::allocator_type>> 
+concept VectorType = (std::derived_from<T, std::vector<typename T::value_type, typename T::allocator_type>> || std::is_same_v<T, std::vector<typename T::value_type, typename T::allocator_type>>)
     && requires {
         typename T::value_type;
         typename T::allocator_type;

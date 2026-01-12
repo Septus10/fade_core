@@ -1,10 +1,14 @@
 #ifndef FADE_CORE_SERIALIZATION_JSON_INPUT_ARCHIVE_HPP_
 #define FADE_CORE_SERIALIZATION_JSON_INPUT_ARCHIVE_HPP_
 
+// Fade includes
+#include "core/include/containers/dynamic_array.hpp"
 #include "core/include/serialization/input_archive.hpp"
+#include "core/include/reflection/reflect_enum.hpp"
 #include "core/include/logging.hpp"
 #include "core/include/type_traits.hpp"
 
+// STL includes
 #include <fstream>
 #include <sstream>
 #include <cctype>
@@ -52,7 +56,7 @@ struct JsonArray
         return *this;
     }
 
-    std::vector<struct JsonValue> elements;
+    fade::DynamicArray<struct JsonValue> elements;
 };
 
 struct JsonObject
@@ -175,13 +179,13 @@ public:
     }
 
     template <typename T>
-    bool LoadArray(const std::string& in_name, std::vector<T>& out_array)
+    bool LoadArray(const std::string& in_name, fade::DynamicArray<T>& out_array)
     {
-        return PerformFunctionOnMember([this](JsonValue& in_json_value, std::vector<T>& out_array){
+        return PerformFunctionOnMember([this](JsonValue& in_json_value, fade::DynamicArray<T>& out_array){
             // Only if the value is actually a json object should we push and pop context.
             if (JsonArray* array_ptr = std::get_if<JsonArray>(&in_json_value.value); array_ptr != nullptr)
             {
-                std::vector<JsonValue>& json_values = array_ptr->elements;
+                fade::DynamicArray<JsonValue>& json_values = array_ptr->elements;
                 out_array.reserve(json_values.size());
                 for (JsonValue& json_value : json_values)
                 {                
