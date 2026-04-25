@@ -1,6 +1,0 @@
-{
-  "name": "Fade Platform Entry",
-  "description": "The platform specific entry point for Fade applications.",
-  "implements_main": true,
-  "has_platform_implementations": true
-}

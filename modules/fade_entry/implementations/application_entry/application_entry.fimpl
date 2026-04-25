@@ -1,7 +1,0 @@
-{
-  "name": "Fade Application Main",
-  "description": "The entry point used when implementing the application interface.",
-  "dependencies": [
-    "application"
-  ]
-}
