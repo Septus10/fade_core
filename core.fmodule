@@ -1,0 +1,17 @@
+{
+  "name": "fade_core",
+  "display_name": "Fade Core",
+  "description": "A collection of core functionalities for the Fade Framework.",
+  "interface": {
+    "version": {
+      "major": 0,
+      "minor": 0,
+      "revision": 1
+    }
+  },
+  "include_dirs": {
+    "public": ["include"],
+    "private": []
+  },
+  "source_dirs": ["src"]
+}
